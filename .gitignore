@@ -1,0 +1,15 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# QGIS local cache
+.qgis_cache/
+*.gpkg-shm
+*.gpkg-wal
+
+# Windows temporary files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
