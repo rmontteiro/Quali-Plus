@@ -132,3 +132,4 @@ python install_plugin.py
 Ou carregue o arquivo `agerh_hidro.zip` diretamente no menu **Complementos** > **Instalar a partir do ZIP** no QGIS.
 
 Ao iniciar o QGIS, acesse pelo menu superior **QUALI+** > **Dimensão Água** ou clique no botão da barra de ferramentas.
+
