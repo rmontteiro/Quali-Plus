@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Script utilitário para instalar o plugin AGERH Hidro Dados diretamente
+Script utilitário para instalar o plugin QUALI+ (Módulo Água) diretamente
 no diretório de plugins do QGIS do usuário e gerar um arquivo .ZIP para distribuição.
 """
 
@@ -26,9 +26,13 @@ FILES_TO_COPY = [
     "README.md",
 ]
 
+DIRS_TO_COPY = [
+    "modules"
+]
+
 
 def install():
-    print(f"Instalando plugin '{PLUGIN_FOLDER_NAME}'...")
+    print(f"Instalando plugin QUALI+ ('{PLUGIN_FOLDER_NAME}')...")
     print(f"Origem:  {SOURCE_DIR}")
     print(f"Destino: {TARGET_DIR}")
 
@@ -37,28 +41,55 @@ def install():
 
     os.makedirs(TARGET_DIR, exist_ok=True)
 
+    # Copiar arquivos
     for fname in FILES_TO_COPY:
         src = os.path.join(SOURCE_DIR, fname)
         dst = os.path.join(TARGET_DIR, fname)
         if os.path.exists(src):
             shutil.copy2(src, dst)
-            print(f"  [OK] Copiado: {fname}")
+            print(f"  [OK] Copiado arquivo: {fname}")
         else:
             print(f"  [AVISO] Arquivo não encontrado: {fname}")
 
-    print("\n✅ Plugin instalado com sucesso no QGIS!")
+    # Copiar diretórios recursivamente
+    for dname in DIRS_TO_COPY:
+        src_d = os.path.join(SOURCE_DIR, dname)
+        dst_d = os.path.join(TARGET_DIR, dname)
+        if os.path.exists(src_d):
+            if os.path.exists(dst_d):
+                shutil.rmtree(dst_d)
+            shutil.copytree(src_d, dst_d)
+            print(f"  [OK] Copiado diretório: {dname}/")
+
+    print("\n✅ Plugin QUALI+ (Módulo Água) instalado com sucesso no QGIS!")
 
 
 def create_zip():
     zip_path = os.path.join(SOURCE_DIR, f"{PLUGIN_FOLDER_NAME}.zip")
     print(f"\nGerando pacote ZIP para distribuição: {zip_path}")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        # Arquivos raiz
         for fname in FILES_TO_COPY:
             fpath = os.path.join(SOURCE_DIR, fname)
             if os.path.exists(fpath):
                 arcname = os.path.join(PLUGIN_FOLDER_NAME, fname)
                 zf.write(fpath, arcname)
                 print(f"  [ZIP] Adicionado: {arcname}")
+
+        # Diretórios
+        for dname in DIRS_TO_COPY:
+            src_d = os.path.join(SOURCE_DIR, dname)
+            if os.path.exists(src_d):
+                for root, _, files in os.walk(src_d):
+                    for file in files:
+                        if file.endswith(".pyc") or "__pycache__" in root:
+                            continue
+                        fpath = os.path.join(root, file)
+                        rel_path = os.path.relpath(fpath, SOURCE_DIR)
+                        arcname = os.path.join(PLUGIN_FOLDER_NAME, rel_path)
+                        zf.write(fpath, arcname)
+                        print(f"  [ZIP] Adicionado: {arcname}")
+
     print(f"✅ Pacote ZIP criado com sucesso: {zip_path}")
     return zip_path
 
@@ -66,4 +97,3 @@ def create_zip():
 if __name__ == "__main__":
     install()
     create_zip()
-

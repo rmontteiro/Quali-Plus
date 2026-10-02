@@ -1,0 +1,16 @@
+[general]
+name=QUALI+ • Módulo Água
+qgisMinimumVersion=3.22
+qgisMaximumVersion=3.99
+description=Plataforma QUALI+ (Dimensão Temática ÁGUA). Integração federada de fontes estaduais (AGERH), nacionais (ANA, SGB, Cemaden) e globais (GloFAS, NASA, Copernicus).
+about=Complemento QGIS para a dimensão Água da plataforma QUALI+ (Governo do Estado do Espírito Santo / SEAMA / AGERH). Apresenta arquitetura modular multiprovedores distinguindo dimensões, fontes e produtos analíticos. Conta com o conector operacional AGERH (Qualidade da Água IQA, Outorgas e Interferências) e mapeamento federado das fontes previstas no White Paper QUALI+.
+version=1.1.0
+author=Robson Monteiro / SEAMA / AGERH - ES
+email=robson.monteiro@seama.es.gov.br
+repository=https://github.com/rmontteiro/Quali-Plus
+tracker=https://github.com/rmontteiro/Quali-Plus/issues
+category=Web
+tags=quali,quali+,agua,agerh,ana,sgb,cemaden,espirito santo,seama,recursos hidricos,hidrologia,outorga,iqa
+experimental=False
+deprecated=False
+hasProcessingProvider=no

@@ -1,79 +1,134 @@
-# AGERH Hidro Dados - Complemento QGIS
+# QUALI+ • Dimensão Temática ÁGUA (Complemento QGIS)
 
-Complemento Python para o **QGIS** (3.22 ou superior) desenvolvido para integrar, visualizar e analisar espacialmente os dados públicos de recursos hídricos disponibilizados pela **Agência Estadual de Recursos Hídricos do Espírito Santo (AGERH)**.
+Plataforma de inteligência territorial e monitoramento ambiental para o **QGIS** (versão 3.22 ou superior), estruturada segundo o **White Paper QUALI+** pelo Governo do Estado do Espírito Santo (**SEAMA / AGERH**).
 
 ---
 
-## 🌊 APIs Integradas da AGERH
+## 🏛️ Princípio Arquitetural Central
 
-O plugin consome diretamente as APIs de dados abertos do portal Hidro AGERH:
+> **AGERH NÃO É O MÓDULO ÁGUA. AGERH É UMA DAS FONTES DO MÓDULO ÁGUA.**
 
-| Conjunto de Dados | Endpoint da API | Formato | Tipo de Camada / Geometria | CRS / Referência |
+A dimensão **ÁGUA** do QUALI+ é uma dimensão temática agregadora de múltiplas fontes estaduais, nacionais e globais. O sistema distingue rigorosamente:
+
+1. **Dimensão Temática**: `Água` (recursos hídricos, qualidade, extremos e segurança hídrica).
+2. **Fontes / Conectores (Providers)**: Provedores de dados com seus respectivos protocolos de acesso.
+3. **Produtos Analíticos (Products)**: Camadas e séries temáticas consumidas pelos usuários e tomadores de decisão.
+
+```text
+ÁGUA (Dimensão Temática)
+│
+├── FONTES / CONECTORES (Providers)
+│   ├── AGERH / HidroAgerh         [🟢 OPERACIONAL / DISPONÍVEL]
+│   │   ├── Pontos de Coleta (IQA)
+│   │   ├── Dados de Monitoramento IQA
+│   │   ├── Outorgas de Direito de Uso
+│   │   ├── Interferências e Vazões
+│   │   ├── Bacias Hidrográficas
+│   │   └── Corpos Hídricos
+│   │
+│   ├── ANA / SNIRH / Hidroweb     [⏳ PLANEJADO]
+│   ├── SGB / CPRM - SACE          [⏳ PLANEJADO]
+│   ├── Cemaden - PCDs Hidro       [⏳ PLANEJADO]
+│   ├── Monitor de Secas           [⏳ PLANEJADO]
+│   ├── AlertaES / Defesa Civil    [⏳ PLANEJADO]
+│   ├── GloFAS (Copernicus)        [⏳ PLANEJADO]
+│   ├── NASA / GPM IMERG           [⏳ PLANEJADO]
+│   ├── MapBiomas Água             [⏳ PLANEJADO]
+│   └── Copernicus Sentinel-1 SAR  [⏳ PLANEJADO]
+│
+└── PRODUTOS ANALÍTICOS (Products)
+    ├── Qualidade da Água (IQA)
+    ├── Níveis Fluviométricos (Cotas)
+    ├── Vazões Fluviais
+    ├── Precipitação Pluviométrica
+    ├── Outorgas de Uso da Água
+    ├── Interferências e Balanço
+    ├── Reservatórios e Barramentos
+    ├── Inundações e Manchas de Cheia
+    ├── Extremos Hidrológicos (Secas / Cheias)
+    └── Segurança Hídrica
+```
+
+---
+
+## 🧩 Arquitetura de Software
+
+```text
+modules/
+└── agua/
+    ├── base.py                 # Contratos BaseDataProvider, ProviderStatus, BaseProduct
+    ├── registry.py             # SourceRegistry e ProductRegistry centrais
+    ├── provenance.py           # Gestão de linhagem e metadados DataProvenance
+    │
+    ├── providers/
+    │   ├── base.py             # Contrato de provedor
+    │   ├── agerh/              # Conector Operacional AGERH
+    │   │   ├── adapter.py      # AgerhProvider (Adapter em torno do AgerhDataLoader)
+    │   │   ├── service.py      # Camada de download, parsing e montagem vetorial
+    │   │   └── worker.py       # Thread de segundo plano (não bloqueante)
+    │   ├── ana/                # AnaProvider (status: planned)
+    │   ├── sgb/                # SgbProvider (status: planned)
+    │   ├── cemaden/            # CemadenProvider (status: planned)
+    │   ├── monitor_secas/      # MonitorSecasProvider (status: planned)
+    │   ├── alerta_es/          # AlertaEsProvider (status: planned)
+    │   ├── glofas/             # GlofasProvider (status: planned)
+    │   ├── nasa_gpm/           # NasaGpmProvider (status: planned)
+    │   ├── mapbiomas_agua/     # MapbiomasAguaProvider (status: planned)
+    │   └── sentinel1/          # Sentinel1Provider (status: planned)
+    │
+    ├── products/               # Produtos Analíticos normalizados
+    │   ├── qualidade_agua/
+    │   ├── hidrologia/
+    │   ├── precipitacao/
+    │   ├── inundacao/
+    │   ├── outorgas/
+    │   └── seguranca_hidrica/
+    │
+    └── ui/
+        └── dialog.py           # Interface agregadora QUALI+ Dimensão Água
+```
+
+---
+
+## 🔒 Proveniência e Auditoria Científica (`DataProvenance`)
+
+Cada camada espacial ou tabela gerada no QUALI+ recebe automaticamente uma assinatura auditável de linhagem gravada em suas `CustomProperties` e nos metadados do QGIS:
+
+- `dimension`: `agua`
+- `provider`: Identificador da fonte (ex: `agerh`)
+- `organization`: Entidade de custódia (ex: `AGERH`, `ANA`, `NASA`)
+- `dataset`: Conjunto de dados específico (ex: `pontos_coleta`, `outorgas`)
+- `product`: Produto analítico associado
+- `retrieved_at`: Timestamp UTC exato da coleta
+- `territory`: Recorte territorial (`Espírito Santo`)
+- `algorithm`: Método de ingestão, conversão geodésica e junção
+
+---
+
+## 🌊 Conector Operacional AGERH (Implementado no MVP)
+
+| Conjunto de Dados | Geometria / Formato | CRS / Referência | Registros | Produto Analítico |
 | :--- | :--- | :--- | :--- | :--- |
-| **Pontos de Coleta IQA** | `https://hidro.agerh.es.gov.br/exportar_iqa?type=pontos_coleta` | XML | Vetor de Pontos | EPSG:4326 (WGS 84) |
-| **Dados IQA (Monitoramento)** | `https://hidro.agerh.es.gov.br/exportar_iqa?type=dados_iqa` | XML | Tabela Não-Espacial (53 campos) | — |
-| **Outorgas** | `https://hidro.agerh.es.gov.br/exportar_outorga?type=outorgas` | XML | Vetor de Pontos | EPSG:31984 (SIRGAS 2000 / UTM 24S) |
-| **Interferências** | `https://hidro.agerh.es.gov.br/exportar_outorga?type=interferencias` | XML | Tabela Não-Espacial (vazões mensais) | — |
-| **Bacias Hidrográficas** | `https://hidro.agerh.es.gov.br/exportar_iqa?type=bacias` | XML | Tabela de Referência | — |
-| **Corpos Hídricos** | `https://hidro.agerh.es.gov.br/exportar_iqa?type=corpos_hidricos` | XML | Tabela de Referência | — |
+| **Pontos de Coleta IQA** | Vetor de Pontos | **EPSG:4326** (WGS 84) | 112 estações | `qualidade_agua` |
+| **Outorgas** | Vetor de Pontos | **EPSG:31984** (SIRGAS 2000 UTM 24S) | ~10.846 processos | `outorgas` |
+| **Histórico IQA** | Tabela (53 parâmetros) | — | ~1.810 coletas | `qualidade_agua` |
+| **Interferências** | Tabela (vazões mensais) | — | ~10.014 registros | `interferencias` |
+| **Bacias Hidrográficas**| Tabela de Referência | — | 12 bacias | `seguranca_hidrica` |
+| **Corpos Hídricos** | Tabela de Referência | — | 59 cursos d'água | `seguranca_hidrica` |
+
+- **Enriquecimento Inteligente**: Vincula automaticamente a última medição de qualidade aos pontos IQA e as vazões ($Q_{90}$, $Q_{\text{média}}$, vazão máxima requerida) às outorgas.
+- **Simbologia Automática**: Estilos temáticos por classe de qualidade (IQA) e por tipo de interferência (captação, barramento, efluentes).
+- **Filtros Flexíveis**: Filtragem por qualquer um dos 78 municípios capixabas, bacias hidrográficas e status.
+- **Modos de Saída**: Camadas em Memória (ágeis) ou exportação em GeoPackage (`.gpkg`).
 
 ---
 
-## 🚀 Funcionalidades Principais
+## 📦 Instalação e Atualização
 
-1. **Camadas Espaciais Automáticas**:
-   - **Pontos de Coleta (Qualidade da Água)**: Plota todas as estações de amostragem no Espírito Santo com opção de anexar a **última medição de IQA** (valor numérico, classe, data, pH, oxigênio dissolvido, turbidez, coliformes).
-   - **Outorgas de Recursos Hídricos**: Plota os pontos de captação, barramento e lançamento de efluentes em coordenadas UTM Zone 24S (SIRGAS 2000), vinculando dados de vazões requeridas, Q90 e Qmédia.
-2. **Simbologia Temática Pronta**:
-   - Classificação automática dos pontos IQA por qualidade da água (*Ótima, Boa, Média, Ruim, Péssima*).
-   - Classificação automática das outorgas por tipo de interferência (*Captação Superficial, Subterrânea, Barramento, Lançamento de Efluentes, etc.*).
-3. **Filtros Espaciais e Administrativos**:
-   - Filtragem rápida por qualquer um dos **78 municípios capixabas**.
-   - Filtragem por **Bacia Hidrográfica** (Doce, Jucu, Santa Maria da Vitória, Itapemirim, etc.).
-   - Filtragem por **Status da Outorga** (*Concluído, Aguardando análise, etc.*) ou **Tipo de Interferência**.
-4. **Exportação Flexível**:
-   - **Camadas em Memória (Memory Layer)**: Ideal para visualização imediata e temporária no projeto.
-   - **GeoPackage (.gpkg)**: Salva todas as camadas e tabelas selecionadas em um arquivo consolidado e de alta performance no disco.
-5. **Alta Performance e Sem Congelamento**:
-   - Downloads e conversões executados em segundo plano via `QThread`, mantendo a interface do QGIS responsiva.
-   - Sistema de cache local inteligente para evitar downloads repetidos de arquivos grandes (como a tabela de interferências com ~35 MB).
-
----
-
-## 📦 Como Instalar no QGIS
-
-### Método 1: Instalação Automática (Recomendado)
-Execute o script `install_plugin.py` com o Python do QGIS ou Python padrão do sistema:
-
+Execute o instalador:
 ```powershell
 python install_plugin.py
 ```
-*(Ele copia automaticamente os arquivos para `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\agerh_hidro`)*
+Ou carregue o arquivo `agerh_hidro.zip` diretamente no menu **Complementos** > **Instalar a partir do ZIP** no QGIS.
 
-### Método 2: Instalar a partir do arquivo ZIP no QGIS
-1. No QGIS, acesse o menu **Complementos** > **Gerenciar e Instalar Complementos...**
-2. Clique na aba lateral **Instalar a partir do ZIP**.
-3. Selecione o arquivo `agerh_hidro.zip` gerado na pasta do projeto.
-4. Clique em **Instalar complemento**.
-
-### Método 3: Cópia Manual
-Copie toda a pasta `agerh_hidro_qgis_plugin` para o diretório de complementos do QGIS:
-- **Windows**: `C:\Users\<Seu_Usuario>\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\agerh_hidro`
-
----
-
-## 🖥️ Como Utilizar
-
-1. No QGIS, clique no ícone da gota azul na barra de ferramentas ou no menu superior **AGERH** > **AGERH Hidro Dados**.
-2. Na aba **1. Camadas & Tabelas**, selecione quais dados deseja carregar.
-3. Na aba **2. Filtros**, opcionalmente selecione um município ou bacia específica para recortar os dados.
-4. Na aba **3. Destino & Estilo**, escolha entre carregar na memória ou salvar em GeoPackage.
-5. Clique no botão **Carregar Dados no QGIS**.
-
----
-
-## 🛠️ Tecnologias e Dependências
-- **QGIS**: Versão 3.22 ou superior
-- **PyQt5 / PyQt6**: Interface gráfica nativa do QGIS
-- **Python 3**: Bibliotecas padrão (`urllib`, `xml.etree.ElementTree`, `ssl`, `json`)
-- **Sem dependências externas adicionais** (tudo roda nativamente dentro do ambiente Python do QGIS).
+Ao iniciar o QGIS, acesse pelo menu superior **QUALI+** > **Dimensão Água** ou clique no botão da barra de ferramentas.
